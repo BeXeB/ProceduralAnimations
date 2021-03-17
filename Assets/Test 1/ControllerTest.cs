@@ -3,15 +3,10 @@ using UnityEngine.InputSystem;
 
 public class ControllerTest : MonoBehaviour
 {
-    Rigidbody rb;
     float speed = 5f;
     float rotSpeed = 0.5f;
     Vector2 moveDir;
     float turnDir;
-    void Start()
-    {
-        rb = GetComponent<Rigidbody>();
-    }
 
     void FixedUpdate()
     {
