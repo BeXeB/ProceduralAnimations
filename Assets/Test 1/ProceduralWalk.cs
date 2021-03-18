@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 public class ProceduralWalk : MonoBehaviour
 {
@@ -6,10 +7,15 @@ public class ProceduralWalk : MonoBehaviour
     [SerializeField] Transform[] targetsFixedToBody;
     [SerializeField] float distanceToMove = 5f;
     [SerializeField] float distanceToKeepFromGround = 0.3f;
+    [SerializeField] float legSpeed = 2f;
     [SerializeField] LayerMask mask;
 
     Vector3[] targetLocationsOnGround;
     Vector3[] fixedTargetLocationsOnGround;
+
+    bool changed = false;
+    bool legMoving;
+    bool legPairs; //true = pair even, false = pair odd
 
     private void Start()
     {
@@ -27,21 +33,48 @@ public class ProceduralWalk : MonoBehaviour
     void Update()
     {
         RaycastHit hit;
-        bool changed = false;
         for (int i = 0; i < targetsFixedToBody.Length; i++)
         {
             Physics.Raycast(targetsFixedToBody[i].position, -transform.up, out hit, Mathf.Infinity, mask);
-            fixedTargetLocationsOnGround[i] = hit.point;
+            if (legMoving)
+            {
+                if (legPairs)
+                {
+                    if (i % 2 == 1)
+                    {
+                        fixedTargetLocationsOnGround[i] = hit.point;
+                    }
+                }
+                else
+                {
+                    if (i % 2 == 0)
+                    {
+                        fixedTargetLocationsOnGround[i] = hit.point;
+                    }
+                }
+            }
+            else
+            {
+                fixedTargetLocationsOnGround[i] = hit.point;
+            }
         }
         for (int i = 0; i < targets.Length; i++)
         {
-            //replace distance with sphere
+            //replace distance with sphere and fixedtargetlocation with a point on the sphere
             if (Vector3.Distance(targetLocationsOnGround[i], fixedTargetLocationsOnGround[i]) > distanceToMove)
             {
-                //only move odd/even leggs
-                targets[i].position = fixedTargetLocationsOnGround[i];
-                targetLocationsOnGround[i] = fixedTargetLocationsOnGround[i];
-                changed = true;
+                if (!legMoving)
+                {
+                    if (i % 2 == 0)
+                    {
+                        legPairs = true;
+                    }
+                    else
+                    {
+                        legPairs = false;
+                    }
+                    StartCoroutine(MoveLegs());
+                }
             }
             else
             {
@@ -50,7 +83,6 @@ public class ProceduralWalk : MonoBehaviour
         }
         if (changed)
         {
-            //vector 1 and 2 temp
             Vector3 vector1 = targetLocationsOnGround[2] - targetLocationsOnGround[0];
             Vector3 vector2 = targetLocationsOnGround[3] - targetLocationsOnGround[1];
             Vector3 normalizedCrossProduct = Vector3.Cross(vector1, vector2).normalized;
@@ -63,6 +95,46 @@ public class ProceduralWalk : MonoBehaviour
             }
             averageOfTargetPositions /= targetLocationsOnGround.Length;
             transform.position = new Vector3(transform.position.x, averageOfTargetPositions.y + distanceToKeepFromGround, transform.position.z);
+            changed = false;
         }
+    }
+
+    IEnumerator MoveLegs()
+    {
+        legMoving = true;
+        bool finishedMoving = false;
+        while (!finishedMoving)
+        {
+            for (int i = 0; i < fixedTargetLocationsOnGround.Length; i++)
+            {
+                if (!legPairs)
+                {
+                    if (i % 2 == 1)
+                    {
+                        targets[i].position = Vector3.MoveTowards(targets[i].position, fixedTargetLocationsOnGround[i], Time.deltaTime * legSpeed);
+                        targetLocationsOnGround[i] = targets[i].position;
+                        if (targets[i].position == fixedTargetLocationsOnGround[i])
+                        {
+                            finishedMoving = true;
+                        }
+                    }
+                }
+                else
+                {
+                    if (i % 2 == 0)
+                    {
+                        targets[i].position = Vector3.MoveTowards(targets[i].position, fixedTargetLocationsOnGround[i], Time.deltaTime * legSpeed);
+                        targetLocationsOnGround[i] = targets[i].position;
+                        if (targets[i].position == fixedTargetLocationsOnGround[i])
+                        {
+                            finishedMoving = true;
+                        }
+                    }
+                }
+            }
+            yield return null;
+        }
+        changed = true;
+        legMoving = false;
     }
 }
